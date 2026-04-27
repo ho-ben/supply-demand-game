@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supply and Demand Game</title>
+  <style>
+    :root {
+      --ink: #1e2430;
+      --muted: #5b6472;
+      --grid: #d9cfbe;
+      --demand: #1f6feb;
+      --supply: #d14d41;
+      --cs: rgba(31, 111, 235, 0.25);
+      --profit: rgba(46, 160, 67, 0.30);
+      --profit2: rgba(255, 140, 0, 0.28);
+      --dwl: rgba(209, 77, 65, 0.30);
+      --surface: #efe4d1;
+      --accent: #0a7c66;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.8), transparent 35%),
+        linear-gradient(135deg, #efe4d1, #f8f3ea 45%, #e8dfcf);
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 0 0 28px;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 430px) 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel,
+    .chart-card {
+      background: rgba(255, 250, 242, 0.84);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(30, 36, 48, 0.08);
+      border-radius: 20px;
+      box-shadow: 0 18px 40px rgba(30, 36, 48, 0.10);
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .chart-card {
+      padding: 18px;
+    }
+
+    .controls,
+    .equations,
+    .slider-block {
+      display: grid;
+      gap: 10px;
+    }
+
+    .controls {
+      gap: 18px;
+    }
+
+    .mode-switch,
+    .submode-switch {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 4px;
+      gap: 4px;
+      border-radius: 999px;
+    }
+
+    .mode-switch {
+      background: var(--surface);
+    }
+
+    .submode-switch {
+      background: rgba(30, 36, 48, 0.06);
+    }
+
+    .mode-switch button,
+    .submode-switch button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 9px 14px;
+      border-radius: 999px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .mode-switch button.active,
+    .submode-switch button.active {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 4px 14px rgba(30, 36, 48, 0.12);
+    }
+
+    .slider-shell {
+      border: 1px solid rgba(30, 36, 48, 0.08);
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.45);
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.95rem;
+    }
+
+    .slider-row strong {
+      font-size: 1.2rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .equations {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .equation {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 0.98rem;
+    }
+
+    .label {
+      color: var(--muted);
+    }
+
+    .notes,
+    .chart-caption {
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.4;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      margin-bottom: 10px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend i {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    @media (max-width: 920px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Supply, Demand, and Pricing Power</h1>
+    <p class="subtitle">
+      Demand is <strong>Q = 10 - P</strong>. Marginal cost is a flat supply line at <strong>P = 2</strong>.
+      Compare monopoly choice with duopoly competition in prices or quantities.
+    </p>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="controls">
+          <div class="mode-switch" aria-label="mode selector">
+            <button id="monopolyBtn" class="active" type="button">Monopoly</button>
+            <button id="duopolyBtn" type="button">Duopoly</button>
+          </div>
+
+          <div id="duopolyModeSwitch" class="submode-switch" aria-label="duopoly type selector" hidden>
+            <button id="bertrandBtn" class="active" type="button">Bertrand</button>
+            <button id="cournotBtn" type="button">Cournot</button>
+          </div>
+
+          <div class="equations">
+            <div class="equation"><span class="label">Demand</span><strong>Q = 10 - P</strong></div>
+            <div class="equation"><span class="label">Inverse demand</span><strong>P = 10 - Q</strong></div>
+            <div class="equation"><span class="label">Supply / MC</span><strong>P = 2</strong></div>
+            <div class="equation"><span class="label">Efficient outcome</span><strong>P = 2, Q = 8</strong></div>
+          </div>
+
+          <div id="monopolyControls" class="slider-block">
+            <div class="slider-shell">
+              <div class="slider-row">
+                <span>Monopolist price</span>
+                <strong id="price1Value">6.00</strong>
+              </div>
+              <input id="price1" type="range" min="0" max="10" step="0.1" value="6">
+            </div>
+
+            <div class="slider-shell">
+              <div class="slider-row">
+                <span>Monopolist quantity</span>
+                <strong id="quantity1Value">4.00</strong>
+              </div>
+              <input id="quantity1" type="range" min="0" max="10" step="0.1" value="4">
+            </div>
+          </div>
+
+          <div id="duopolyControls" class="slider-block" hidden>
+            <div id="bertrandControls" class="slider-block">
+              <div class="slider-shell">
+                <div class="slider-row">
+                  <span>Firm 1 price</span>
+                  <strong id="price1DuopolyValue">6.00</strong>
+                </div>
+                <input id="price1Duopoly" type="range" min="0" max="10" step="0.1" value="6">
+              </div>
+
+              <div class="slider-shell">
+                <div class="slider-row">
+                  <span>Firm 2 price</span>
+                  <strong id="price2Value">6.00</strong>
+                </div>
+                <input id="price2" type="range" min="0" max="10" step="0.1" value="6">
+              </div>
+            </div>
+
+            <div id="cournotControls" class="slider-block" hidden>
+              <div class="slider-shell">
+                <div class="slider-row">
+                  <span>Firm 1 quantity</span>
+                <strong id="quantity1DuopolyValue">2.00</strong>
+              </div>
+                <input id="quantity1Duopoly" type="range" min="0" max="5" step="0.1" value="2">
+              </div>
+
+              <div class="slider-shell">
+                <div class="slider-row">
+                  <span>Firm 2 quantity</span>
+                  <strong id="quantity2Value">2.00</strong>
+                </div>
+                <input id="quantity2" type="range" min="0" max="5" step="0.1" value="2">
+              </div>
+            </div>
+          </div>
+
+          <div id="modeNotes" class="notes"></div>
+        </div>
+      </section>
+
+      <section class="chart-card">
+        <div class="legend">
+          <span><i style="background: var(--cs);"></i>Consumer surplus</span>
+          <span><i style="background: var(--profit);"></i><span id="legendProfit1">Profit</span></span>
+          <span id="legendProfit2Wrap"><i style="background: var(--profit2);"></i>Firm 2 profit</span>
+          <span><i style="background: var(--dwl);"></i>Deadweight loss</span>
+        </div>
+        <svg id="chart" viewBox="0 0 760 520" aria-label="supply and demand chart">
+          <rect x="0" y="0" width="760" height="520" fill="transparent"></rect>
+          <g id="grid"></g>
+          <g id="areas"></g>
+          <g id="curves"></g>
+          <g id="axes"></g>
+          <g id="labels"></g>
+          <g id="summary"></g>
+        </svg>
+        <div class="chart-caption" id="chartCaption"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      mode: "monopoly",
+      duopolyType: "bertrand",
+      p1: 6,
+      p2: 6,
+      q1: 4,
+      q2: 2,
+      activeProfit: null
+    };
+
+    const maxP = 10;
+    const maxQ = 10;
+    const mc = 2;
+
+    const gridGroup = document.getElementById("grid");
+    const areasGroup = document.getElementById("areas");
+    const curvesGroup = document.getElementById("curves");
+    const axesGroup = document.getElementById("axes");
+    const labelsGroup = document.getElementById("labels");
+    const summaryGroup = document.getElementById("summary");
+
+    const controls = {
+      monopolyBtn: document.getElementById("monopolyBtn"),
+      duopolyBtn: document.getElementById("duopolyBtn"),
+      duopolyModeSwitch: document.getElementById("duopolyModeSwitch"),
+      bertrandBtn: document.getElementById("bertrandBtn"),
+      cournotBtn: document.getElementById("cournotBtn"),
+      monopolyControls: document.getElementById("monopolyControls"),
+      duopolyControls: document.getElementById("duopolyControls"),
+      bertrandControls: document.getElementById("bertrandControls"),
+      cournotControls: document.getElementById("cournotControls"),
+      price1: document.getElementById("price1"),
+      quantity1: document.getElementById("quantity1"),
+      price1Duopoly: document.getElementById("price1Duopoly"),
+      price2: document.getElementById("price2"),
+      quantity1Duopoly: document.getElementById("quantity1Duopoly"),
+      quantity2: document.getElementById("quantity2"),
+      price1Value: document.getElementById("price1Value"),
+      quantity1Value: document.getElementById("quantity1Value"),
+      price1DuopolyValue: document.getElementById("price1DuopolyValue"),
+      price2Value: document.getElementById("price2Value"),
+      quantity1DuopolyValue: document.getElementById("quantity1DuopolyValue"),
+      quantity2Value: document.getElementById("quantity2Value"),
+      modeNotes: document.getElementById("modeNotes"),
+      legendProfit1: document.getElementById("legendProfit1"),
+      legendProfit2Wrap: document.getElementById("legendProfit2Wrap"),
+      chartCaption: document.getElementById("chartCaption")
+    };
+
+    const frame = { left: 72, right: 28, top: 24, bottom: 54 };
+    const innerHeight = 520 - frame.top - frame.bottom;
+    const innerWidth = innerHeight;
+
+    function xScale(q) {
+      return frame.left + (q / maxQ) * innerWidth;
+    }
+
+    function yScale(p) {
+      return frame.top + innerHeight - (p / maxP) * innerHeight;
+    }
+
+    function demandPrice(q) {
+      return 10 - q;
+    }
+
+    function quantityAtPrice(price) {
+      return Math.max(0, 10 - price);
+    }
+
+    function priceAtQuantity(quantity) {
+      return Math.max(0, 10 - quantity);
+    }
+
+    function fmt(value) {
+      return Number(value).toFixed(2);
+    }
+
+    function polygon(points, fill) {
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      p.setAttribute("points", points.map(([x, y]) => `${x},${y}`).join(" "));
+      p.setAttribute("fill", fill);
+      return p;
+    }
+
+    function line(x1, y1, x2, y2, stroke, width = 2, dash = "") {
+      const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      l.setAttribute("x1", x1);
+      l.setAttribute("y1", y1);
+      l.setAttribute("x2", x2);
+      l.setAttribute("y2", y2);
+      l.setAttribute("stroke", stroke);
+      l.setAttribute("stroke-width", width);
+      if (dash) l.setAttribute("stroke-dasharray", dash);
+      return l;
+    }
+
+    function rect(x, y, width, height, fill) {
+      const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      r.setAttribute("x", x);
+      r.setAttribute("y", y);
+      r.setAttribute("width", width);
+      r.setAttribute("height", height);
+      r.setAttribute("fill", fill);
+      return r;
+    }
+
+    function text(x, y, value, size = 13, anchor = "middle", color = "currentColor") {
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", x);
+      t.setAttribute("y", y);
+      t.setAttribute("fill", color);
+      t.setAttribute("font-size", size);
+      t.setAttribute("text-anchor", anchor);
+      t.textContent = value;
+      return t;
+    }
+
+    function clear(group) {
+      while (group.firstChild) {
+        group.removeChild(group.firstChild);
+      }
+    }
+
+    function resetMonopoly() {
+      state.p1 = 6;
+      state.q1 = 4;
+      state.activeProfit = null;
+    }
+
+    function resetBertrand() {
+      state.p1 = 6;
+      state.p2 = 6;
+      state.activeProfit = null;
+    }
+
+    function resetCournot() {
+      state.q1 = 2;
+      state.q2 = 2;
+      state.activeProfit = null;
+    }
+
+    function computeOutcome() {
+      if (state.mode === "monopoly") {
+        return {
+          modeDetail: "monopoly",
+          marketPrice: state.p1,
+          quantity: state.q1,
+          firm1Quantity: state.q1,
+          firm2Quantity: 0,
+          profit1: (state.p1 - mc) * state.q1,
+          profit2: 0,
+          winnerText: "The monopolist serves the whole market at the chosen point on demand."
+        };
+      }
+
+      if (state.duopolyType === "cournot") {
+        const totalQuantity = Math.min(maxQ, state.q1 + state.q2);
+        const marketPrice = priceAtQuantity(totalQuantity);
+        return {
+          modeDetail: "cournot",
+          marketPrice,
+          quantity: totalQuantity,
+          firm1Quantity: state.q1,
+          firm2Quantity: state.q2,
+          profit1: (marketPrice - mc) * state.q1,
+          profit2: (marketPrice - mc) * state.q2,
+          winnerText: "Cournot duopoly sets quantities first, then price adjusts to clear demand."
+        };
+      }
+
+      const marketPrice = Math.min(state.p1, state.p2);
+      const quantity = quantityAtPrice(marketPrice);
+      let firm1Quantity = 0;
+      let firm2Quantity = 0;
+
+      if (quantity > 0) {
+        if (Math.abs(state.p1 - state.p2) < 1e-9) {
+          firm1Quantity = quantity / 2;
+          firm2Quantity = quantity / 2;
+        } else if (state.p1 < state.p2) {
+          firm1Quantity = quantity;
+        } else {
+          firm2Quantity = quantity;
+        }
+      }
+
+      return {
+        modeDetail: "bertrand",
+        marketPrice,
+        quantity,
+        firm1Quantity,
+        firm2Quantity,
+        profit1: (state.p1 - mc) * firm1Quantity,
+        profit2: (state.p2 - mc) * firm2Quantity,
+        winnerText:
+          state.p1 === state.p2
+            ? "Equal prices split demand evenly."
+            : state.p1 < state.p2
+              ? "Firm 1 undercuts Firm 2 and serves the market."
+              : "Firm 2 undercuts Firm 1 and serves the market."
+      };
+    }
+
+    function drawSummary(outcome, consumerSurplus, deadweightLoss) {
+      clear(summaryGroup);
+
+      const panel = rect(550, 24, 168, 176, "rgba(255, 250, 242, 0.94)");
+      panel.setAttribute("stroke", "rgba(30, 36, 48, 0.10)");
+      panel.setAttribute("rx", "14");
+      summaryGroup.appendChild(panel);
+
+      summaryGroup.appendChild(text(566, 52, "Outcome", 20, "start", "var(--ink)"));
+
+      const rows = [
+        ["Price", fmt(outcome.marketPrice)],
+        ["Quantity", fmt(outcome.quantity)],
+        ["CS", fmt(Math.max(0, consumerSurplus))],
+        ["DWL", fmt(Math.max(0, deadweightLoss))]
+      ];
+
+      if (state.mode === "monopoly") {
+        rows.push(["Profit", fmt(outcome.profit1)]);
+      } else {
+        rows.push(["Firm 1 profit", fmt(outcome.profit1)]);
+        rows.push(["Firm 2 profit", fmt(outcome.profit2)]);
+      }
+
+      rows.forEach((row, index) => {
+        const y = 84 + index * 24;
+        const isProfitRow =
+          (state.activeProfit === "profit1" && row[0] === "Profit") ||
+          (state.activeProfit === "profit1" && row[0] === "Firm 1 profit") ||
+          (state.activeProfit === "profit2" && row[0] === "Firm 2 profit");
+
+        if (isProfitRow) {
+          const highlight = rect(558, y - 15, 152, 20, "rgba(10, 124, 102, 0.12)");
+          highlight.setAttribute("rx", "8");
+          summaryGroup.appendChild(highlight);
+        }
+
+        summaryGroup.appendChild(text(566, y, row[0], isProfitRow ? 16 : 15, "start", isProfitRow ? "var(--accent)" : "var(--muted)"));
+        summaryGroup.appendChild(text(704, y, row[1], isProfitRow ? 17 : 15, "end", "var(--ink)"));
+      });
+    }
+
+    function drawChart(outcome, consumerSurplus, deadweightLoss) {
+      clear(gridGroup);
+      clear(areasGroup);
+      clear(curvesGroup);
+      clear(axesGroup);
+      clear(labelsGroup);
+      clear(summaryGroup);
+
+      for (let i = 0; i <= 10; i += 1) {
+        gridGroup.appendChild(line(xScale(i), yScale(0), xScale(i), yScale(10), "var(--grid)", 1));
+        gridGroup.appendChild(line(xScale(0), yScale(i), xScale(10), yScale(i), "var(--grid)", 1));
+      }
+
+      axesGroup.appendChild(line(xScale(0), yScale(0), xScale(10), yScale(0), "var(--ink)", 2));
+      axesGroup.appendChild(line(xScale(0), yScale(0), xScale(0), yScale(10), "var(--ink)", 2));
+
+      for (let i = 0; i <= 10; i += 2) {
+        axesGroup.appendChild(text(xScale(i), yScale(0) + 28, String(i), 16));
+        axesGroup.appendChild(text(xScale(0) - 22, yScale(i) + 6, String(i), 16, "end"));
+      }
+
+      axesGroup.appendChild(text(xScale(5), yScale(0) + 52, "Quantity", 18));
+      const priceLabel = text(xScale(0) - 56, yScale(5), "Price", 18);
+      priceLabel.setAttribute("transform", `rotate(-90 ${xScale(0) - 56} ${yScale(5)})`);
+      axesGroup.appendChild(priceLabel);
+
+      const marketQ = outcome.quantity;
+      const marketP = outcome.marketPrice;
+      const efficientQ = quantityAtPrice(mc);
+
+      if (marketQ > 0) {
+        areasGroup.appendChild(
+          polygon(
+            [
+              [xScale(0), yScale(10)],
+              [xScale(marketQ), yScale(demandPrice(marketQ))],
+              [xScale(marketQ), yScale(marketP)],
+              [xScale(0), yScale(marketP)]
+            ],
+            "var(--cs)"
+          )
+        );
+      }
+
+      if (state.mode === "monopoly") {
+        if (outcome.firm1Quantity > 0 && marketP !== mc) {
+          const top = Math.min(marketP, mc);
+          const bottom = Math.max(marketP, mc);
+          areasGroup.appendChild(
+            rect(
+              xScale(0),
+              yScale(bottom),
+              xScale(outcome.firm1Quantity) - xScale(0),
+              yScale(top) - yScale(bottom),
+              "var(--profit)"
+            )
+          );
+        }
+      } else if (outcome.modeDetail === "bertrand") {
+        if (outcome.firm1Quantity > 0 && state.p1 !== mc) {
+          const top = Math.min(state.p1, mc);
+          const bottom = Math.max(state.p1, mc);
+          areasGroup.appendChild(
+            rect(
+              xScale(0),
+              yScale(bottom),
+              xScale(outcome.firm1Quantity) - xScale(0),
+              yScale(top) - yScale(bottom),
+              "var(--profit)"
+            )
+          );
+        }
+
+        if (outcome.firm2Quantity > 0 && state.p2 !== mc) {
+          const top = Math.min(state.p2, mc);
+          const bottom = Math.max(state.p2, mc);
+          const startQ = outcome.firm1Quantity;
+          areasGroup.appendChild(
+            rect(
+              xScale(startQ),
+              yScale(bottom),
+              xScale(startQ + outcome.firm2Quantity) - xScale(startQ),
+              yScale(top) - yScale(bottom),
+              "var(--profit2)"
+            )
+          );
+        }
+      } else {
+        if (outcome.firm1Quantity > 0 && marketP !== mc) {
+          const top = Math.min(marketP, mc);
+          const bottom = Math.max(marketP, mc);
+          areasGroup.appendChild(
+            rect(
+              xScale(0),
+              yScale(bottom),
+              xScale(outcome.firm1Quantity) - xScale(0),
+              yScale(top) - yScale(bottom),
+              "var(--profit)"
+            )
+          );
+        }
+
+        if (outcome.firm2Quantity > 0 && marketP !== mc) {
+          const top = Math.min(marketP, mc);
+          const bottom = Math.max(marketP, mc);
+          areasGroup.appendChild(
+            rect(
+              xScale(outcome.firm1Quantity),
+              yScale(bottom),
+              xScale(outcome.firm1Quantity + outcome.firm2Quantity) - xScale(outcome.firm1Quantity),
+              yScale(top) - yScale(bottom),
+              "var(--profit2)"
+            )
+          );
+        }
+      }
+
+      if (marketQ < efficientQ) {
+        areasGroup.appendChild(
+          polygon(
+            [
+              [xScale(marketQ), yScale(mc)],
+              [xScale(efficientQ), yScale(mc)],
+              [xScale(marketQ), yScale(demandPrice(marketQ))]
+            ],
+            "var(--dwl)"
+          )
+        );
+      } else if (marketQ > efficientQ) {
+        areasGroup.appendChild(
+          polygon(
+            [
+              [xScale(efficientQ), yScale(mc)],
+              [xScale(marketQ), yScale(mc)],
+              [xScale(marketQ), yScale(demandPrice(marketQ))]
+            ],
+            "var(--dwl)"
+          )
+        );
+      }
+
+      const demandPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      demandPath.setAttribute("d", `M ${xScale(0)} ${yScale(10)} L ${xScale(10)} ${yScale(0)}`);
+      demandPath.setAttribute("fill", "none");
+      demandPath.setAttribute("stroke", "var(--demand)");
+      demandPath.setAttribute("stroke-width", "3");
+      curvesGroup.appendChild(demandPath);
+
+      curvesGroup.appendChild(line(xScale(0), yScale(mc), xScale(10), yScale(mc), "var(--supply)", 3));
+      curvesGroup.appendChild(line(xScale(marketQ), yScale(0), xScale(marketQ), yScale(marketP), "var(--ink)", 1.5, "6 4"));
+      curvesGroup.appendChild(line(xScale(0), yScale(marketP), xScale(marketQ), yScale(marketP), "var(--ink)", 1.5, "6 4"));
+      curvesGroup.appendChild(line(xScale(efficientQ), yScale(0), xScale(efficientQ), yScale(mc), "var(--muted)", 1.2, "3 4"));
+
+      const point = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      point.setAttribute("cx", xScale(marketQ));
+      point.setAttribute("cy", yScale(marketP));
+      point.setAttribute("r", 5);
+      point.setAttribute("fill", "var(--ink)");
+      curvesGroup.appendChild(point);
+
+      labelsGroup.appendChild(text(xScale(1.1), yScale(9.2), "Demand", 18, "start", "var(--demand)"));
+      labelsGroup.appendChild(text(xScale(8.8), yScale(mc - 0.45), "Supply / MC = 2", 18, "end", "var(--supply)"));
+      labelsGroup.appendChild(text(xScale(marketQ) + 12, yScale(marketP) - 12, `(${fmt(marketQ)}, ${fmt(marketP)})`, 17, "start"));
+      labelsGroup.appendChild(text(xScale(efficientQ) + 12, yScale(mc) - 12, "Efficient", 16, "start"));
+      drawSummary(outcome, consumerSurplus, deadweightLoss);
+    }
+
+    function render() {
+      const outcome = computeOutcome();
+      const consumerSurplus = 0.5 * outcome.quantity * (10 - outcome.marketPrice);
+      const deadweightLoss = 0.5 * Math.abs(8 - outcome.quantity) * Math.abs(outcome.marketPrice - mc);
+      const monopoly = state.mode === "monopoly";
+      const cournot = state.duopolyType === "cournot";
+
+      controls.price1Value.textContent = fmt(state.p1);
+      controls.quantity1Value.textContent = fmt(state.q1);
+      controls.price1DuopolyValue.textContent = fmt(state.p1);
+      controls.price2Value.textContent = fmt(state.p2);
+      controls.quantity1DuopolyValue.textContent = fmt(state.q1);
+      controls.quantity2Value.textContent = fmt(state.q2);
+      controls.price1.value = String(state.p1);
+      controls.quantity1.value = String(state.q1);
+      controls.price1Duopoly.value = String(state.p1);
+      controls.price2.value = String(state.p2);
+      controls.quantity1Duopoly.value = String(state.q1);
+      controls.quantity2.value = String(state.q2);
+
+      controls.monopolyBtn.classList.toggle("active", monopoly);
+      controls.duopolyBtn.classList.toggle("active", !monopoly);
+      controls.bertrandBtn.classList.toggle("active", !cournot);
+      controls.cournotBtn.classList.toggle("active", cournot);
+
+      controls.duopolyModeSwitch.hidden = monopoly;
+      controls.monopolyControls.hidden = !monopoly;
+      controls.duopolyControls.hidden = monopoly;
+      controls.bertrandControls.hidden = monopoly || cournot;
+      controls.cournotControls.hidden = monopoly || !cournot;
+
+      controls.legendProfit1.textContent = monopoly ? "Profit" : "Firm 1 profit";
+      controls.legendProfit2Wrap.style.display = monopoly ? "none" : "inline-flex";
+
+      if (monopoly) {
+        controls.modeNotes.textContent =
+          "Monopoly shows linked price and quantity sliders. Moving one moves the other along the demand curve.";
+        controls.chartCaption.textContent =
+          "The monopolist chooses a point on demand and captures the profit rectangle above marginal cost.";
+      } else if (cournot) {
+        controls.modeNotes.textContent =
+          "Cournot duopoly lets each firm choose output. Total quantity determines the market price from inverse demand, and each firm's profit is (P - 2) times its own quantity.";
+        controls.chartCaption.textContent = outcome.winnerText;
+      } else {
+        controls.modeNotes.textContent =
+          "Bertrand duopoly lets each firm post a price. The lower price serves the market, and a tie splits demand evenly.";
+        controls.chartCaption.textContent = outcome.winnerText;
+      }
+
+      drawChart(outcome, consumerSurplus, deadweightLoss);
+    }
+
+    controls.monopolyBtn.addEventListener("click", () => {
+      state.mode = "monopoly";
+      resetMonopoly();
+      render();
+    });
+
+    controls.duopolyBtn.addEventListener("click", () => {
+      state.mode = "duopoly";
+      state.duopolyType = "bertrand";
+      resetBertrand();
+      render();
+    });
+
+    controls.bertrandBtn.addEventListener("click", () => {
+      state.duopolyType = "bertrand";
+      resetBertrand();
+      render();
+    });
+
+    controls.cournotBtn.addEventListener("click", () => {
+      state.duopolyType = "cournot";
+      resetCournot();
+      render();
+    });
+
+    controls.price1.addEventListener("input", (event) => {
+      state.p1 = Number(event.target.value);
+      state.q1 = quantityAtPrice(state.p1);
+      state.activeProfit = "profit1";
+      render();
+    });
+
+    controls.quantity1.addEventListener("input", (event) => {
+      state.q1 = Number(event.target.value);
+      state.p1 = priceAtQuantity(state.q1);
+      state.activeProfit = "profit1";
+      render();
+    });
+
+    controls.price1Duopoly.addEventListener("input", (event) => {
+      state.p1 = Number(event.target.value);
+      state.activeProfit = "profit1";
+      render();
+    });
+
+    controls.price2.addEventListener("input", (event) => {
+      state.p2 = Number(event.target.value);
+      state.activeProfit = "profit2";
+      render();
+    });
+
+    controls.quantity1Duopoly.addEventListener("input", (event) => {
+      state.q1 = Number(event.target.value);
+      state.activeProfit = "profit1";
+      render();
+    });
+
+    controls.quantity2.addEventListener("input", (event) => {
+      state.q2 = Number(event.target.value);
+      state.activeProfit = "profit2";
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
