@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prisoner's Dilemma Simulator</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --paper: rgba(255, 251, 245, 0.88);
+      --paper-strong: #fff9f0;
+      --ink: #1f2430;
+      --muted: #5f6675;
+      --accent: #0b7a75;
+      --accent-soft: rgba(11, 122, 117, 0.12);
+      --cheat: #b93f35;
+      --coop: #2d6b3f;
+      --robot: #2f5ea8;
+      --robot-soft: rgba(47, 94, 168, 0.10);
+      --player: #a15a19;
+      --player-soft: rgba(161, 90, 25, 0.12);
+      --line: rgba(31, 36, 48, 0.12);
+      --gold: #e0b25d;
+      --shadow: 0 24px 48px rgba(31, 36, 48, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", "Avenir Next", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 28%),
+        linear-gradient(135deg, #e7dccb, #f7f2e8 45%, #eee1ce);
+    }
+
+    .page {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.2rem, 5vw, 4.4rem);
+      line-height: 0.94;
+      letter-spacing: -0.05em;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 400px) minmax(320px, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .main {
+      padding: 22px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .section {
+      display: grid;
+      gap: 10px;
+    }
+
+    .section h2,
+    .section h3 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .section p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .scoreboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .scorebox {
+      position: relative;
+      padding: 14px;
+      border-radius: 18px;
+      background: var(--paper-strong);
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .scorebox span {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .scorebox strong {
+      font-size: clamp(1.45rem, 3vw, 2rem);
+    }
+
+    .scorebox.flash {
+      animation: scorePulse 700ms ease;
+    }
+
+    .score-delta {
+      position: absolute;
+      right: 12px;
+      top: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+    }
+
+    .score-delta.show {
+      animation: deltaRise 900ms ease forwards;
+    }
+
+    .score-delta.player {
+      color: var(--player);
+    }
+
+    .score-delta.robot {
+      color: var(--robot);
+    }
+
+    .controls-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    label {
+      font-size: 0.94rem;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    button {
+      font: inherit;
+    }
+
+    input[type="number"],
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fffdfa;
+      color: var(--ink);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+    }
+
+    .action-cooperate {
+      background: linear-gradient(135deg, #3d8c56, #275a38);
+      color: #fff;
+      box-shadow: 0 14px 28px rgba(45, 107, 63, 0.22);
+    }
+
+    .action-cheat {
+      background: linear-gradient(135deg, #d85e4d, #96362f);
+      color: #fff;
+      box-shadow: 0 14px 28px rgba(185, 63, 53, 0.24);
+    }
+
+    .secondary {
+      background: #fffdfa;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .confirm {
+      background: linear-gradient(135deg, #244d8d, #17335f);
+      color: #fff;
+      box-shadow: 0 14px 28px rgba(36, 77, 141, 0.22);
+    }
+
+    .status {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(11, 122, 117, 0.15);
+      line-height: 1.45;
+    }
+
+    .matrix-shell {
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+    }
+
+    .matrix-board {
+      width: min(100%, 760px);
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 14px 18px;
+      align-items: center;
+    }
+
+    .col-actions {
+      grid-column: 2;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0;
+    }
+
+    .row-actions {
+      grid-column: 1;
+      grid-row: 2;
+      display: grid;
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 0;
+      min-height: 420px;
+      align-self: stretch;
+    }
+
+    .player-badge,
+    .robot-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #fff;
+    }
+
+    .player-badge {
+      background: var(--player);
+    }
+
+    .robot-badge {
+      background: var(--robot);
+    }
+
+    .action-label {
+      display: grid;
+      gap: 6px;
+      justify-items: center;
+      align-content: center;
+      padding: 12px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.3rem, 3vw, 2rem);
+    }
+
+    .action-label.clickable {
+      cursor: pointer;
+      border-radius: 18px;
+      transition: background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+    }
+
+    .action-label.clickable:hover {
+      transform: translateX(2px);
+    }
+
+    .action-label.cheat {
+      color: var(--cheat);
+    }
+
+    .action-label.cooperate {
+      color: var(--coop);
+    }
+
+    .action-label.side {
+      min-height: 210px;
+    }
+
+    .action-label span {
+      font-family: "Trebuchet MS", "Avenir Next", sans-serif;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .action-label.selected.cheat,
+    .action-label.active-row.cheat {
+      background: rgba(185, 63, 53, 0.12);
+      box-shadow: inset 0 0 0 2px rgba(185, 63, 53, 0.25);
+    }
+
+    .action-label.selected.cooperate,
+    .action-label.active-row.cooperate {
+      background: rgba(45, 107, 63, 0.12);
+      box-shadow: inset 0 0 0 2px rgba(45, 107, 63, 0.25);
+    }
+
+    .action-label.active-column.cheat {
+      background: rgba(185, 63, 53, 0.10);
+      box-shadow: inset 0 0 0 2px rgba(185, 63, 53, 0.22);
+    }
+
+    .action-label.active-column.cooperate {
+      background: rgba(45, 107, 63, 0.10);
+      box-shadow: inset 0 0 0 2px rgba(45, 107, 63, 0.22);
+    }
+
+    .matrix-wrap {
+      grid-column: 2;
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      border: 1px solid rgba(31, 36, 48, 0.24);
+      background: rgba(255, 252, 246, 0.96);
+      min-height: 420px;
+    }
+
+    .payoff {
+      position: relative;
+      min-height: 210px;
+      border-right: 1px solid rgba(31, 36, 48, 0.22);
+      border-bottom: 1px solid rgba(31, 36, 48, 0.22);
+      overflow: hidden;
+      transition: background 140ms ease, box-shadow 140ms ease;
+    }
+
+    .payoff:nth-child(2n) {
+      border-right: 0;
+    }
+
+    .payoff:nth-child(n + 3) {
+      border-bottom: 0;
+    }
+
+    .payoff::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to top right,
+          transparent calc(50% - 1px),
+          rgba(31, 36, 48, 0.28) 50%,
+          transparent calc(50% + 1px));
+      pointer-events: none;
+    }
+
+    .payoff .robot-half,
+    .payoff .player-half {
+      position: absolute;
+      display: grid;
+      gap: 6px;
+      max-width: 42%;
+      text-align: center;
+      padding: 10px;
+      border-radius: 16px;
+    }
+
+    .payoff .robot-half {
+      top: 18px;
+      right: 18px;
+      justify-items: center;
+      background: var(--robot-soft);
+    }
+
+    .payoff .player-half {
+      bottom: 18px;
+      left: 18px;
+      justify-items: center;
+      background: var(--player-soft);
+    }
+
+    .payoff .role {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .payoff .robot-half .role,
+    .payoff .robot-half .value {
+      color: var(--robot);
+    }
+
+    .payoff .player-half .role,
+    .payoff .player-half .value {
+      color: var(--player);
+    }
+
+    .payoff .value {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      line-height: 1;
+    }
+
+    .payoff .move-note {
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+
+    .payoff.active {
+      background: linear-gradient(135deg, rgba(224, 178, 93, 0.20), rgba(255, 250, 240, 0.98));
+      box-shadow: inset 0 0 0 4px rgba(224, 178, 93, 0.9);
+    }
+
+    .payoff.row-focus.cheat {
+      background: linear-gradient(135deg, rgba(185, 63, 53, 0.08), rgba(255, 252, 246, 0.96));
+    }
+
+    .payoff.row-focus.cooperate {
+      background: linear-gradient(135deg, rgba(45, 107, 63, 0.08), rgba(255, 252, 246, 0.96));
+    }
+
+    .payoff.column-focus.cheat {
+      box-shadow: inset 0 0 0 3px rgba(185, 63, 53, 0.18);
+    }
+
+    .payoff.column-focus.cooperate {
+      box-shadow: inset 0 0 0 3px rgba(45, 107, 63, 0.18);
+    }
+
+    .history {
+      display: grid;
+      gap: 10px;
+      max-height: 340px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .history-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: var(--paper-strong);
+      border: 1px solid var(--line);
+    }
+
+    .history-item strong {
+      font-size: 0.96rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 88px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #fff;
+    }
+
+    .pill.cooperate {
+      background: var(--coop);
+    }
+
+    .pill.cheat {
+      background: var(--cheat);
+    }
+
+    .history-item small {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    @keyframes scorePulse {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.07); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes deltaRise {
+      0% {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      25% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-16px);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .matrix-board {
+        grid-template-columns: 116px 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .page {
+        padding-inline: 12px;
+      }
+
+      .scoreboard,
+      .button-row {
+        grid-template-columns: 1fr;
+      }
+
+      .matrix-board {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+      }
+
+      .col-actions,
+      .row-actions,
+      .matrix-wrap {
+        grid-column: 1;
+      }
+
+      .col-actions {
+        grid-row: 1;
+      }
+
+      .row-actions {
+        grid-row: 2;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: 1fr;
+        min-height: auto;
+      }
+
+      .action-label.side {
+        min-height: auto;
+      }
+
+      .matrix-wrap {
+        grid-row: 3;
+        min-height: 320px;
+      }
+
+      .payoff {
+        min-height: 160px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <h1>Prisoner's Dilemma Simulator</h1>
+      <p class="subtitle">
+        One player, one robot, repeated rounds. Choose <strong>Cooperate</strong> or <strong>Cheat</strong>,
+        adjust the number of rounds, switch the robot strategy, and restart any time.
+      </p>
+    </header>
+
+    <div class="layout">
+      <aside class="card sidebar">
+        <div class="section">
+          <h2>Score</h2>
+          <div class="scoreboard">
+            <div class="scorebox">
+              <span>You</span>
+              <strong id="playerScore">0</strong>
+              <div id="playerDelta" class="score-delta player"></div>
+            </div>
+            <div class="scorebox">
+              <span>Robot</span>
+              <strong id="robotScore">0</strong>
+              <div id="robotDelta" class="score-delta robot"></div>
+            </div>
+            <div class="scorebox">
+              <span>Round</span>
+              <strong id="roundDisplay">0 / 1</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Setup</h2>
+          <div class="controls-grid">
+            <div class="field">
+              <label for="roundsInput">Number of rounds</label>
+              <input id="roundsInput" type="number" min="1" max="50" step="1" value="1">
+            </div>
+            <div class="field">
+              <label for="robotBehavior">Robot behavior</label>
+              <select id="robotBehavior">
+                <option value="titForTat">Tit for Tat</option>
+                <option value="alwaysCooperate">Always Cooperate</option>
+                <option value="alwaysCheat">Always Cheat</option>
+                <option value="grudger">Grudger</option>
+                <option value="random" selected>Random</option>
+              </select>
+            </div>
+            <div class="button-row">
+              <button id="applySettings" class="secondary" type="button">Apply Settings</button>
+              <button id="restartGame" class="secondary" type="button">Restart Game</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Play</h2>
+          <p>Tap one of your row labels in the matrix, then confirm the move.</p>
+          <button id="confirmMove" class="confirm" type="button" disabled>Confirm Choice</button>
+        </div>
+
+        <div class="section">
+          <h2>Robot Rules</h2>
+          <p id="robotDescription"></p>
+        </div>
+
+        <div class="status" id="statusBox">
+          Choose one of your row labels to start round 1.
+        </div>
+      </aside>
+
+      <main class="card main">
+        <div class="section">
+          <h2>Payoff Matrix</h2>
+          <p>Each square is split diagonally: the lower-left payoff is <strong>you</strong>, and the upper-right payoff is the <strong>robot</strong>.</p>
+        </div>
+
+        <div class="matrix-shell">
+          <div class="matrix-board">
+            <div class="col-actions">
+              <div class="action-label cheat" id="robotColCheat">
+                Cheat
+                <span><span class="robot-badge">Robot</span></span>
+              </div>
+              <div class="action-label cooperate" id="robotColCooperate">
+                Cooperate
+                <span><span class="robot-badge">Robot</span></span>
+              </div>
+            </div>
+
+            <div class="row-actions">
+              <div class="action-label side cheat clickable" id="playerRowCheat" tabindex="0" role="button" aria-label="Choose Cheat row">
+                Cheat
+                <span><span class="player-badge">You</span></span>
+              </div>
+              <div class="action-label side cooperate clickable" id="playerRowCooperate" tabindex="0" role="button" aria-label="Choose Cooperate row">
+                Cooperate
+                <span><span class="player-badge">You</span></span>
+              </div>
+            </div>
+
+            <div class="matrix-wrap">
+              <div class="payoff" id="cell-XX">
+                <div class="robot-half">
+                  <div class="role">Robot payoff</div>
+                  <div class="value">0</div>
+                  <div class="move-note">Robot cheats</div>
+                </div>
+                <div class="player-half">
+                  <div class="role">Your payoff</div>
+                  <div class="value">0</div>
+                  <div class="move-note">You cheat</div>
+                </div>
+              </div>
+
+              <div class="payoff" id="cell-XC">
+                <div class="robot-half">
+                  <div class="role">Robot payoff</div>
+                  <div class="value">-1</div>
+                  <div class="move-note">Robot cooperates</div>
+                </div>
+                <div class="player-half">
+                  <div class="role">Your payoff</div>
+                  <div class="value">3</div>
+                  <div class="move-note">You cheat</div>
+                </div>
+              </div>
+
+              <div class="payoff" id="cell-CX">
+                <div class="robot-half">
+                  <div class="role">Robot payoff</div>
+                  <div class="value">3</div>
+                  <div class="move-note">Robot cheats</div>
+                </div>
+                <div class="player-half">
+                  <div class="role">Your payoff</div>
+                  <div class="value">-1</div>
+                  <div class="move-note">You cooperate</div>
+                </div>
+              </div>
+
+              <div class="payoff" id="cell-CC">
+                <div class="robot-half">
+                  <div class="role">Robot payoff</div>
+                  <div class="value">2</div>
+                  <div class="move-note">Robot cooperates</div>
+                </div>
+                <div class="player-half">
+                  <div class="role">Your payoff</div>
+                  <div class="value">2</div>
+                  <div class="move-note">You cooperate</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Round History</h3>
+          <div class="history" id="historyList"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const payoffMap = {
+      CC: { player: 2, robot: 2 },
+      CX: { player: -1, robot: 3 },
+      XC: { player: 3, robot: -1 },
+      XX: { player: 0, robot: 0 }
+    };
+
+    const robotNotes = {
+      titForTat: "Starts by cooperating, then copies your previous move.",
+      alwaysCooperate: "Always chooses Cooperate.",
+      alwaysCheat: "Always chooses Cheat.",
+      grudger: "Cooperates until you cheat once, then cheats forever.",
+      random: "Chooses Cooperate or Cheat randomly each round."
+    };
+
+    const state = {
+      totalRounds: 1,
+      currentRound: 0,
+      playerScore: 0,
+      robotScore: 0,
+      robotBehavior: "random",
+      history: [],
+      gameOver: false,
+      pendingMove: null,
+      revealedRobotMove: null,
+      isResolving: false
+    };
+
+    const els = {
+      playerScore: document.getElementById("playerScore"),
+      robotScore: document.getElementById("robotScore"),
+      roundDisplay: document.getElementById("roundDisplay"),
+      playerDelta: document.getElementById("playerDelta"),
+      robotDelta: document.getElementById("robotDelta"),
+      roundsInput: document.getElementById("roundsInput"),
+      robotBehavior: document.getElementById("robotBehavior"),
+      applySettings: document.getElementById("applySettings"),
+      restartGame: document.getElementById("restartGame"),
+      confirmMove: document.getElementById("confirmMove"),
+      robotDescription: document.getElementById("robotDescription"),
+      statusBox: document.getElementById("statusBox"),
+      historyList: document.getElementById("historyList"),
+      playerScoreBox: document.getElementById("playerScore").parentElement,
+      robotScoreBox: document.getElementById("robotScore").parentElement,
+      playerRows: {
+        C: document.getElementById("playerRowCooperate"),
+        X: document.getElementById("playerRowCheat")
+      },
+      robotCols: {
+        C: document.getElementById("robotColCooperate"),
+        X: document.getElementById("robotColCheat")
+      },
+      cells: {
+        CC: document.getElementById("cell-CC"),
+        CX: document.getElementById("cell-CX"),
+        XC: document.getElementById("cell-XC"),
+        XX: document.getElementById("cell-XX")
+      }
+    };
+
+    function formatAction(action) {
+      return action === "C" ? "Cooperate" : "Cheat";
+    }
+
+    function resetGame() {
+      state.currentRound = 0;
+      state.playerScore = 0;
+      state.robotScore = 0;
+      state.history = [];
+      state.gameOver = false;
+      state.pendingMove = null;
+      state.revealedRobotMove = null;
+      state.isResolving = false;
+      clearHighlight();
+      clearScoreEffects();
+      els.statusBox.textContent = "Choose one of your row labels to start round 1.";
+      render();
+    }
+
+    function applySettings() {
+      const nextRounds = Math.max(1, Math.min(50, Number(els.roundsInput.value) || 1));
+      state.totalRounds = nextRounds;
+      state.robotBehavior = els.robotBehavior.value;
+      els.roundsInput.value = String(nextRounds);
+      resetGame();
+      els.statusBox.textContent = `Settings applied. Choose a row to start round 1 against ${behaviorLabel(state.robotBehavior)}.`;
+    }
+
+    function behaviorLabel(key) {
+      return els.robotBehavior.options[els.robotBehavior.selectedIndex].text;
+    }
+
+    function getRobotMove() {
+      const lastRound = state.history[state.history.length - 1];
+
+      if (state.robotBehavior === "alwaysCooperate") return "C";
+      if (state.robotBehavior === "alwaysCheat") return "X";
+      if (state.robotBehavior === "random") return Math.random() < 0.5 ? "C" : "X";
+      if (state.robotBehavior === "grudger") {
+        return state.history.some((round) => round.playerMove === "X") ? "X" : "C";
+      }
+
+      return lastRound ? lastRound.playerMove : "C";
+    }
+
+    function keyForMoves(playerMove, robotMove) {
+      if (playerMove === "C" && robotMove === "C") return "CC";
+      if (playerMove === "C" && robotMove === "X") return "CX";
+      if (playerMove === "X" && robotMove === "C") return "XC";
+      return "XX";
+    }
+
+    function clearHighlight() {
+      Object.values(els.cells).forEach((cell) => {
+        cell.className = "payoff";
+      });
+      Object.values(els.playerRows).forEach((row) => {
+        row.classList.remove("selected", "active-row");
+      });
+      Object.values(els.robotCols).forEach((col) => {
+        col.classList.remove("active-column", "cheat", "cooperate");
+        if (col.id === "robotColCheat") {
+          col.classList.add("action-label", "cheat");
+        } else {
+          col.classList.add("action-label", "cooperate");
+        }
+      });
+    }
+
+    function clearScoreEffects() {
+      els.playerDelta.classList.remove("show");
+      els.robotDelta.classList.remove("show");
+      els.playerDelta.textContent = "";
+      els.robotDelta.textContent = "";
+      els.playerScoreBox.classList.remove("flash");
+      els.robotScoreBox.classList.remove("flash");
+    }
+
+    function wait(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    function updateBoardHighlights(outcomeKey = null) {
+      clearHighlight();
+
+      if (state.pendingMove) {
+        const row = els.playerRows[state.pendingMove];
+        const rowTone = state.pendingMove === "C" ? "cooperate" : "cheat";
+        const rowKeys = state.pendingMove === "C" ? ["CX", "CC"] : ["XX", "XC"];
+        row.classList.add("selected", "active-row");
+        rowKeys.forEach((key) => els.cells[key].classList.add("row-focus", rowTone));
+      }
+
+      if (state.revealedRobotMove) {
+        const col = els.robotCols[state.revealedRobotMove];
+        const colTone = state.revealedRobotMove === "C" ? "cooperate" : "cheat";
+        const colKeys = state.revealedRobotMove === "C" ? ["XC", "CC"] : ["XX", "CX"];
+        col.classList.add("active-column", colTone);
+        colKeys.forEach((key) => els.cells[key].classList.add("column-focus", colTone));
+      }
+
+      if (outcomeKey) {
+        els.cells[outcomeKey].classList.add("active");
+      }
+    }
+
+    function chooseMove(move) {
+      if (state.gameOver || state.isResolving) return;
+      state.pendingMove = move;
+      state.revealedRobotMove = null;
+      updateBoardHighlights();
+      els.statusBox.textContent = `Selected ${formatAction(move)}. Confirm to lock in round ${state.currentRound + 1}.`;
+      render();
+    }
+
+    async function animateScoreGain(playerGain, robotGain) {
+      clearScoreEffects();
+      els.playerDelta.textContent = playerGain >= 0 ? `+${playerGain}` : `${playerGain}`;
+      els.robotDelta.textContent = robotGain >= 0 ? `+${robotGain}` : `${robotGain}`;
+      els.playerDelta.classList.add("show");
+      els.robotDelta.classList.add("show");
+      els.playerScoreBox.classList.add("flash");
+      els.robotScoreBox.classList.add("flash");
+      await wait(900);
+      clearScoreEffects();
+    }
+
+    async function confirmRound() {
+      if (state.gameOver || state.isResolving || !state.pendingMove) return;
+
+      state.isResolving = true;
+      const playerMove = state.pendingMove;
+      const robotMove = getRobotMove();
+      const key = keyForMoves(playerMove, robotMove);
+      const payoff = payoffMap[key];
+
+      els.statusBox.textContent = `You locked in ${formatAction(playerMove)}. Waiting for the robot...`;
+      updateBoardHighlights();
+      render();
+      await wait(450);
+
+      state.revealedRobotMove = robotMove;
+      els.statusBox.textContent = `Robot chose ${formatAction(robotMove)}. Applying the payoff...`;
+      updateBoardHighlights();
+      render();
+      await wait(500);
+
+      updateBoardHighlights(key);
+      render();
+      await wait(280);
+
+      state.currentRound += 1;
+      state.playerScore += payoff.player;
+      state.robotScore += payoff.robot;
+      state.history.unshift({
+        round: state.currentRound,
+        playerMove,
+        robotMove,
+        payoff
+      });
+
+      render();
+      await animateScoreGain(payoff.player, payoff.robot);
+
+      if (state.currentRound >= state.totalRounds) {
+        state.gameOver = true;
+        els.statusBox.textContent =
+          `Round ${state.currentRound}: you chose ${formatAction(playerMove)}, robot chose ${formatAction(robotMove)}. Final score: you ${state.playerScore}, robot ${state.robotScore}.`;
+      } else {
+        els.statusBox.textContent =
+          `Round ${state.currentRound}: you chose ${formatAction(playerMove)}, robot chose ${formatAction(robotMove)}. Choose your next row.`;
+      }
+
+      state.pendingMove = null;
+      state.revealedRobotMove = null;
+      state.isResolving = false;
+      clearHighlight();
+      render();
+    }
+
+    function renderHistory() {
+      els.historyList.innerHTML = "";
+
+      if (!state.history.length) {
+        const empty = document.createElement("div");
+        empty.className = "history-item";
+        empty.innerHTML = "<strong>No rounds played yet.</strong><small>Pick one of your row labels, then confirm.</small><small></small>";
+        els.historyList.appendChild(empty);
+        return;
+      }
+
+      state.history.forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "history-item";
+        row.innerHTML = `
+          <strong>Round ${entry.round}</strong>
+          <div>
+            <span class="pill ${entry.playerMove === "C" ? "cooperate" : "cheat"}">You ${formatAction(entry.playerMove)}</span>
+            <span class="pill ${entry.robotMove === "C" ? "cooperate" : "cheat"}">Robot ${formatAction(entry.robotMove)}</span>
+          </div>
+          <small>${entry.payoff.player}, ${entry.payoff.robot}</small>
+        `;
+        els.historyList.appendChild(row);
+      });
+    }
+
+    function render() {
+      els.playerScore.textContent = String(state.playerScore);
+      els.robotScore.textContent = String(state.robotScore);
+      els.roundDisplay.textContent = `${state.currentRound} / ${state.totalRounds}`;
+      els.robotDescription.textContent = robotNotes[state.robotBehavior];
+      els.robotBehavior.value = state.robotBehavior;
+      els.confirmMove.disabled = state.gameOver || state.isResolving || !state.pendingMove;
+
+      renderHistory();
+    }
+
+    els.applySettings.addEventListener("click", applySettings);
+    els.robotBehavior.addEventListener("change", () => {
+      state.robotBehavior = els.robotBehavior.value;
+      els.robotDescription.textContent = robotNotes[state.robotBehavior];
+    });
+    els.restartGame.addEventListener("click", resetGame);
+    els.confirmMove.addEventListener("click", () => {
+      void confirmRound();
+    });
+    els.playerRows.C.addEventListener("click", () => chooseMove("C"));
+    els.playerRows.X.addEventListener("click", () => chooseMove("X"));
+    els.playerRows.C.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        chooseMove("C");
+      }
+    });
+    els.playerRows.X.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        chooseMove("X");
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
